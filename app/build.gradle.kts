@@ -33,6 +33,51 @@ android {
 
 dependencies {
 
+    // Core
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.13.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+
+    // Navigation (KTX)
+    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
+    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
+
+    // Media (for Notification + MediaSession compat)
+    implementation("androidx.media:media:1.6.0")
+
+
+    // Lifecycle (KTX) - old version
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    annotationProcessor("androidx.lifecycle:lifecycle-compiler:2.7.0")
+
+    // Lifecycle (KTX) - new version
+    /*implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    annotationProcessor("androidx.lifecycle:lifecycle-compiler:2.8.4") // Java projects*/
+
+    // Room (KTX)
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    annotationProcessor("androidx.room:room-compiler:2.6.1")
+
+    // Google Play services
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.android.gms:play-services-maps:19.2.0")
+
+    // Test
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
+}
+
+
+
+/*dependencies {
+
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("com.google.android.material:material:1.13.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
@@ -54,10 +99,11 @@ dependencies {
 
 
     // Lifecycle: ViewModel & LiveData
-    implementation ("androidx.lifecycle:lifecycle-viewmodel:2.10.0")
-    implementation ("androidx.lifecycle:lifecycle-livedata:2.10.0")
-    implementation ("androidx.lifecycle:lifecycle-runtime:2.10.0")
+    implementation ("androidx.lifecycle:lifecycle-viewmodel:2.8.4")
+    implementation ("androidx.lifecycle:lifecycle-livedata:2.8.4")
+    implementation ("androidx.lifecycle:lifecycle-runtime:2.8.4")
     annotationProcessor ("androidx.lifecycle:lifecycle-compiler:2.8.4")
+
 
     // Room
     implementation ("androidx.room:room-runtime:2.6.1")
@@ -70,7 +116,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
-}
+}*/
 
 /*dependencies {
 
