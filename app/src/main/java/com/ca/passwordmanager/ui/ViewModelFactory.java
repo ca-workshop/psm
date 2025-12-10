@@ -19,7 +19,27 @@ public class ViewModelFactory implements ViewModelProvider.Factory {
         this.repository = new PasswordRepository(db.passwordDao());
     }
 
-    @NonNull
+    public ViewModelFactory(PasswordRepository repository) {
+        this.repository = repository;
+    }
+
+
+   @NonNull
+   @Override
+   @SuppressWarnings("unchecked")
+   public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
+       if (modelClass.isAssignableFrom(LoginViewModel.class)) {
+           return (T) new LoginViewModel(repository);
+       } else if (modelClass.isAssignableFrom(PasswordListViewModel.class)) {
+           return (T) new PasswordListViewModel(repository);
+       } else if (modelClass.isAssignableFrom(AddEditPasswordViewModel.class)) {
+           return (T) new AddEditPasswordViewModel(repository);
+       } else {
+           throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass);
+       }
+   }
+
+    /*@NonNull
     @Override
     @SuppressWarnings("unchecked")
     public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
@@ -30,7 +50,11 @@ public class ViewModelFactory implements ViewModelProvider.Factory {
         } else {
             throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass);
         }
-    }
+    }*/
+
+
+
+
 
     //new version
    /* @NonNull

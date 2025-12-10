@@ -7,6 +7,12 @@
     <string name="next">Next</string>
     <string name="previous">Previous</string>
 
+
+    <string name="login_title">Enter master password</string>
+    <string name="create_master_password_title">Create master password</string>
+    <string name="action_login">Login</string>
+    <string name="action_create_master_password">Create</string>
+
     <string name="lorem_ipsum">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris
         volutpat, dolor id interdum ullamcorper, risus dolor egestas lectus, sit amet mattis purus

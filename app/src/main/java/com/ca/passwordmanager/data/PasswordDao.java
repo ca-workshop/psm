@@ -27,6 +27,9 @@ public interface PasswordDao {
     @Query("SELECT * FROM password_items ORDER BY accountName ASC")
     LiveData<List<PasswordItem>> getAllPasswords();
 
+    @Query("SELECT * FROM password_items WHERE id = :id LIMIT 1")
+    PasswordItem getByIdSync(long id);
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertPassword(PasswordItem item);
 
