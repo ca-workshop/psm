@@ -26,7 +26,9 @@ public class PasswordManagerApp extends Application {
 
         public AppContainer(Application application) {
             database = AppDatabase.getInstance(application.getApplicationContext());
-            passwordRepository = new PasswordRepository(database.passwordDao());
+
+            // ✅ Repository now builds internally from the DB via Application
+            passwordRepository = new PasswordRepository(application);
         }
     }
 }

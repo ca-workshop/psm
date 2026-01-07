@@ -1,75 +1,51 @@
 package com.ca.passwordmanager.ui;
 
-import android.content.Context;
+import android.app.Application;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.viewmodel.CreationExtras;
 
-import com.ca.passwordmanager.data.AppDatabase;
 import com.ca.passwordmanager.data.PasswordRepository;
+import com.ca.passwordmanager.ui.passwords.PasswordListViewModel;
 
 public class ViewModelFactory implements ViewModelProvider.Factory {
 
+    private final Application app;
     private final PasswordRepository repository;
 
-    public ViewModelFactory(Context context) {
-        AppDatabase db = AppDatabase.getInstance(context.getApplicationContext());
-        this.repository = new PasswordRepository(db.passwordDao());
+    // ✅ Recommended: build everything from Application
+    public ViewModelFactory(@NonNull Application app) {
+        this.app = app;
+        this.repository = new PasswordRepository(app);
     }
 
-    public ViewModelFactory(PasswordRepository repository) {
+    // ✅ Optional: if you already have a repository instance
+    public ViewModelFactory(@NonNull Application app, @NonNull PasswordRepository repository) {
+        this.app = app;
         this.repository = repository;
     }
 
-
-   @NonNull
-   @Override
-   @SuppressWarnings("unchecked")
-   public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
-       if (modelClass.isAssignableFrom(LoginViewModel.class)) {
-           return (T) new LoginViewModel(repository);
-       } else if (modelClass.isAssignableFrom(PasswordListViewModel.class)) {
-           return (T) new PasswordListViewModel(repository);
-       } else if (modelClass.isAssignableFrom(AddEditPasswordViewModel.class)) {
-           return (T) new AddEditPasswordViewModel(repository);
-       } else {
-           throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass);
-       }
-   }
-
-    /*@NonNull
+    @NonNull
     @Override
     @SuppressWarnings("unchecked")
     public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
+
+        // LoginViewModel expects repository
         if (modelClass.isAssignableFrom(LoginViewModel.class)) {
             return (T) new LoginViewModel(repository);
-        } else if (modelClass.isAssignableFrom(PasswordListViewModel.class)) {
-            return (T) new PasswordListViewModel(repository);
-        } else {
-            throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass);
         }
-    }*/
 
-
-
-
-
-    //new version
-   /* @NonNull
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T extends ViewModel> T create(
-            @NonNull Class<T> modelClass,
-            @NonNull CreationExtras extras
-    ) {
-        if (modelClass.isAssignableFrom(LoginViewModel.class)) {
-            return (T) new LoginViewModel(repository);
-        } else if (modelClass.isAssignableFrom(PasswordListViewModel.class)) {
-            return (T) new PasswordListViewModel(repository);
-        } else {
-            throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass);
+        // PasswordListViewModel is AndroidViewModel => needs Application
+        if (modelClass.isAssignableFrom(PasswordListViewModel.class)) {
+            return (T) new PasswordListViewModel(app);
         }
-    }*/
+
+        // Add/Edit expects repository
+        if (modelClass.isAssignableFrom(AddEditPasswordViewModel.class)) {
+            return (T) new AddEditPasswordViewModel(repository);
+        }
+
+        throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass.getName());
+    }
 }

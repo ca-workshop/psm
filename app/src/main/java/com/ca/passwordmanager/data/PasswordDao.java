@@ -30,6 +30,9 @@ public interface PasswordDao {
     @Query("SELECT * FROM password_items WHERE id = :id LIMIT 1")
     PasswordItem getByIdSync(long id);
 
+    //@Query("SELECT * FROM password_items WHERE id = :id LIMIT 1")
+    //PasswordItem getByIdNow(long id);
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertPassword(PasswordItem item);
 

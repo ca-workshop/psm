@@ -1,134 +1,164 @@
-/*
- * Project : PasswordManagerMVVM
- * File    : PasswordRepository.java
- * Author  : Alice & Bob
- *
- * Version : 1.2.0 (tag: v1.2.0)
- * Date    : 2025-12-09
- *
- * Summary :
- *    Repository for password data.
- *    - Exposes LiveData list of PasswordItem.
- *    - Provides async CRUD for password items.
- *    - Provides sync helpers for master password checks (to be called from background threads).
- *
- * History :
- *   2025-12-09  1.2.0  Bob  Cleaned duplicate setMasterPassword, clarified sync/async behavior.
- */
-
 package com.ca.passwordmanager.data;
 
-import android.os.AsyncTask;
+import android.app.Application;
 
 import androidx.lifecycle.LiveData;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class PasswordRepository {
 
-    private final PasswordDao passwordDao;
-    private final LiveData<List<PasswordItem>> allPasswordsLiveData;
+    private final PasswordItemDao passwordItemDao;
+    private final CategoryDao categoryDao;
+    private final PasswordHistoryDao historyDao;
 
-    public PasswordRepository(PasswordDao passwordDao) {
-        this.passwordDao = passwordDao;
-        this.allPasswordsLiveData = passwordDao.getAllPasswords();
+    // NEW:
+    private final MasterPasswordDao masterDao;
+
+    private final ExecutorService io = Executors.newSingleThreadExecutor();
+
+    public PasswordRepository(Application app) {
+        AppDatabase db = AppDatabase.getInstance(app);
+
+        passwordItemDao = db.passwordItemDao();
+        categoryDao = db.categoryDao();
+        historyDao = db.passwordHistoryDao();
+
+        // NEW:
+        masterDao = db.masterPasswordDao();
     }
 
-    // ---------------------------------------------------------------------------------------------
-    // LiveData list
-    // ---------------------------------------------------------------------------------------------
-    public LiveData<List<PasswordItem>> getAllPasswordsLiveData() {
-        return allPasswordsLiveData;
-    }
+    // -------------------------
+    // MASTER PASSWORD API
+    // -------------------------
 
-    // ---------------------------------------------------------------------------------------------
-    // Master password (sync) – MUST be called from background thread
-    // ---------------------------------------------------------------------------------------------
-
-    /** Synchronous read. Call from background thread only. */
-    public MasterPassword getMasterPasswordSync() {
-        return passwordDao.getMasterPasswordSync();
-    }
-
-    /**
-     * Check if master password row exists.
-     * This method is synchronous → call it from a background thread.
-     */
-    public boolean hasMasterPassword() {
-        MasterPassword mp = passwordDao.getMasterPasswordSync();
-        return mp != null;
-    }
-
-    /**
-     * Set / update master password.
-     * This version runs on a background thread internally, safe to call from UI thread.
-     * Later you should store a hash instead of plain text.
-     */
-    public void setMasterPassword(final String plain) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                MasterPassword mp = new MasterPassword();
-                mp.setId(1);              // fixed id = 1, single-row table
-                mp.setPassword(plain);    // TODO: replace with hash
-                passwordDao.setMasterPassword(mp);
-            }
-        });
-    }
-
-    /**
-     * Verify master password.
-     * This method is synchronous → call it from a background thread.
-     */
-    public boolean checkMasterPassword(String plain) {
-        MasterPassword mp = passwordDao.getMasterPasswordSync();
-        if (mp == null) return false;
-        // TODO: compare hash instead of plain text
-        return plain.equals(mp.getPassword());
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // Password items CRUD
-    // ---------------------------------------------------------------------------------------------
-
-    public void addPassword(final String accountName,
-                            final String usernameOrEmail,
-                            final String password,
-                            final long timestamp) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                PasswordItem item = new PasswordItem(
-                        accountName,
-                        usernameOrEmail,
-                        password,
-                        timestamp
-                );
-                passwordDao.insertPassword(item);
-            }
-        });
-    }
-
-    public void updatePassword(final PasswordItem item) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                passwordDao.updatePassword(item);
-            }
-        });
-    }
-
-    public void deletePassword(final PasswordItem item) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                passwordDao.deletePassword(item);
-            }
-        });
-    }
-
-    /** Synchronous read by id – call from background thread (used by AddEditPasswordViewModel). */
+    // Blocking read (call from background thread)
     public PasswordItem getPasswordSyncById(long id) {
-        return passwordDao.getByIdSync(id);
+        return passwordItemDao.getByIdNow(id);
     }
+    //public PasswordItem getPasswordSyncById(long id) {
+    //    return passwordItemDao.getByIdNow(id);
+    //}
+    public void addPassword(String accountName,
+                            String usernameOrEmail,
+                            String password,
+                            long lastChangedTimestamp) {
+        io.execute(() -> {
+            long ts = (lastChangedTimestamp > 0) ? lastChangedTimestamp : System.currentTimeMillis();
+            PasswordItem item = new PasswordItem(accountName, usernameOrEmail, password, ts);
+            passwordItemDao.insert(item);
+        });
+    }
+
+    public void deletePasswordById(long id) {
+        io.execute(() -> passwordItemDao.deleteById(id));
+    }
+
+    /** blocking (call from background thread) */
+    public boolean hasMasterPassword() {
+        return masterDao.hasMasterNow() > 0;
+    }
+
+    /** async write */
+    public void setMasterPassword(String rawPassword) {
+        final String hash = sha256(rawPassword);
+        io.execute(() -> masterDao.upsert(new MasterPasswordEntity(hash, System.currentTimeMillis())));
+    }
+
+    /** blocking check (call from background thread) */
+    public boolean checkMasterPassword(String rawPassword) {
+        String storedHash = masterDao.getHashNow();
+        if (storedHash == null || storedHash.isEmpty()) return false;
+        return storedHash.equals(sha256(rawPassword));
+    }
+
+    public LiveData<List<PasswordItem>> observeAllPasswordItems() {
+        // If you already have passwordItemDao.observeAllRows()
+        return new MappedLiveData<>(passwordItemDao.observeAllRows(), rows -> {
+            List<PasswordItem> out = new ArrayList<>();
+            if (rows == null) return out;
+            for (PasswordItemRow r : rows) out.add(PasswordMappers.toPasswordItem(r));
+            return out;
+        });
+    }
+
+    public void updatePassword(PasswordItem updated) {
+        io.execute(() -> {
+            PasswordItem existing = passwordItemDao.getByIdNow(updated.getId());
+            if (existing == null) {
+                // if item doesn't exist, insert it
+                if (updated.getLastChangedTimestamp() <= 0) {
+                    updated.setLastChangedTimestamp(System.currentTimeMillis());
+                }
+                passwordItemDao.insert(updated);
+                return;
+            }
+
+            String oldPass = existing.getPassword();
+            String newPass = updated.getPassword();
+
+            boolean changed = (oldPass != null && !oldPass.equals(newPass))
+                    || (oldPass == null && newPass != null);
+
+            if (changed) {
+                // store old password in history (if you have historyDao)
+                historyDao.insert(new PasswordHistory(
+                        updated.getId(),
+                        oldPass,
+                        System.currentTimeMillis()
+                ));
+                updated.setLastChangedTimestamp(System.currentTimeMillis());
+            } else {
+                updated.setLastChangedTimestamp(existing.getLastChangedTimestamp());
+            }
+
+            passwordItemDao.update(updated);
+        });
+    }
+
+    // Observe categories for spinner
+    public LiveData<List<Category>> observeCategories() {
+        return categoryDao.observeAll();
+    }
+
+    // Insert new item (async)
+    public void insertPassword(PasswordItem item) {
+        io.execute(() -> passwordItemDao.insert(item));
+    }
+
+    // Update existing (async) - IMPORTANT: do NOT insert here
+    public void updatePasswordOnly(PasswordItem item) {
+        io.execute(() -> passwordItemDao.update(item));
+    }
+
+    public LiveData<List<PasswordHistory>> observeHistory(long passwordItemId) {
+        return historyDao.observeForItem(passwordItemId);
+    }
+
+    // -------------------------
+    // HASHING
+    // -------------------------
+    private static String sha256(String input) {
+        if (input == null) input = "";
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] out = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(out.length * 2);
+            for (byte b : out) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // very unlikely on Android; fallback (still deterministic)
+            return String.valueOf(input.hashCode());
+        }
+    }
+
+    // ... keep the rest of your existing repository methods (observeAllPasswordItems, updatePassword, etc.)
 }

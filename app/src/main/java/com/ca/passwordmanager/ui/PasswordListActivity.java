@@ -1,26 +1,3 @@
-/*
- * Project : PasswordManagerMVVM
- * File    : PasswordListActivity.java
- * Author  : Alice & Bob
- *
- * Version : 1.2.0 (tag: v1.2.0)
- * Date    : 2025-11-06
- *
- * Summary :
- *    Displays a list of saved passwords using RecyclerView + ListAdapter.
- *    Supports:
- *      - Swipe-to-delete
- *      - Tap to edit item
- *      - FAB → add new password
- *      - LiveData observation from ViewModel
- *      - DataBinding + DI (AppContainer)
- *
- * History :
- *   2025-11-03  1.0.0  Alice  Initial UI + RecyclerView
- *   2025-11-04  1.1.0  Bob    Integrated Room + ViewModel + LiveData
- *   2025-11-05  1.2.0  Bob    Added swipe-to-delete + DI
- */
-
 package com.ca.passwordmanager.ui;
 
 import android.content.Intent;
@@ -28,6 +5,7 @@ import android.os.Bundle;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.databinding.DataBindingUtil;
 import androidx.lifecycle.ViewModelProvider;
@@ -36,19 +14,38 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.ca.passwordmanager.ui.PasswordAdapter;
 import com.ca.passwordmanager.PasswordManagerApp;
 import com.ca.passwordmanager.R;
+import com.ca.passwordmanager.data.PasswordItem;
 import com.ca.passwordmanager.data.PasswordRepository;
 import com.ca.passwordmanager.databinding.ActivityPasswordListBinding;
-import com.ca.passwordmanager.data.PasswordItem;
-import com.google.android.material.divider.MaterialDividerItemDecoration;
+import com.ca.passwordmanager.ui.passwords.PasswordHistoryDialog;
+import com.ca.passwordmanager.ui.passwords.PasswordListAdapter;
+import com.ca.passwordmanager.ui.passwords.PasswordListViewModel;
+import com.ca.passwordmanager.ui.passwords.PasswordRowHandler;
 
-public class PasswordListActivity extends AppCompatActivity {
+public class PasswordListActivity extends AppCompatActivity implements PasswordRowHandler {
+
+    //private PasswordListViewModel viewModel;
+    //private PasswordListAdapter adapter;
 
     private ActivityPasswordListBinding binding;
     private PasswordListViewModel viewModel;
     private PasswordAdapter adapter;
+
+    /*@Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_password_list);
+
+        RecyclerView rv = findViewById(R.id.recyclerViewPasswords);
+
+        adapter = new PasswordListAdapter(this *//* handler *//*);
+        rv.setAdapter(adapter);
+
+        viewModel = new ViewModelProvider(this).get(PasswordListViewModel.class);
+        viewModel.getItems().observe(this, items -> adapter.submit(items));
+    }*/
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,7 +59,7 @@ public class PasswordListActivity extends AppCompatActivity {
         PasswordManagerApp app = (PasswordManagerApp) getApplication();
         PasswordRepository repo = app.getAppContainer().passwordRepository;
 
-        ViewModelFactory factory = new ViewModelFactory(repo);
+        ViewModelFactory factory = new ViewModelFactory(getApplication());//repo);
         viewModel = new ViewModelProvider(this, factory).get(PasswordListViewModel.class);
         binding.setViewModel(viewModel);
 
@@ -82,9 +79,9 @@ public class PasswordListActivity extends AppCompatActivity {
 
 
         // simple Divider
-         DividerItemDecoration divider =
-                 new DividerItemDecoration(this, DividerItemDecoration.VERTICAL);
-         binding.recyclerViewPasswords.addItemDecoration(divider);
+        DividerItemDecoration divider =
+                new DividerItemDecoration(this, DividerItemDecoration.VERTICAL);
+        binding.recyclerViewPasswords.addItemDecoration(divider);
 
 
 
@@ -161,9 +158,47 @@ public class PasswordListActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    //private void openEditPassword(long id) {
+    //    Intent intent = new Intent(this, AddEditPasswordActivity.class);
+    //    intent.putExtra(Extras.EXTRA_PASSWORD_ID, id);
+    //    startActivity(intent);
+    //}
+
     private void openEditPassword(long id) {
         Intent intent = new Intent(this, AddEditPasswordActivity.class);
-        intent.putExtra("EXTRA_PASSWORD_ID", id);
+        intent.putExtra(AddEditPasswordActivity.EXTRA_PASSWORD_ID, id);
         startActivity(intent);
+    }
+
+    @Override
+    public void onHistoryClicked(PasswordItem item) {
+        // 1) Defensive checks
+        if (item == null) {
+            Toast.makeText(this, "No item selected", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        long id = item.getId();
+        if (id <= 0) {
+            Toast.makeText(this, "Item not saved yet (no history)", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 2) Build dialog
+        String title = item.getAccountName();
+        if (title == null || title.trim().isEmpty()) title = "Account";
+
+        PasswordHistoryDialog dialog = PasswordHistoryDialog.newInstance(id, title);
+
+        // 3) Show safely (avoids IllegalStateException if called after onSaveInstanceState)
+        try {
+            dialog.show(getSupportFragmentManager(), "hist_" + id);
+        } catch (IllegalStateException e) {
+            // Fallback: allow state loss if activity is not in perfect state
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(dialog, "hist_" + id)
+                    .commitAllowingStateLoss();
+        }
     }
 }

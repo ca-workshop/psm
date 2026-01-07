@@ -32,7 +32,7 @@ public class LoginActivity extends AppCompatActivity {
         PasswordManagerApp app = (PasswordManagerApp) getApplication();
         PasswordRepository repo = app.getAppContainer().passwordRepository;
 
-        ViewModelFactory factory = new ViewModelFactory(repo);
+        ViewModelFactory factory = new ViewModelFactory(getApplication());
         viewModel = new ViewModelProvider(this, factory).get(LoginViewModel.class);
         binding.setViewModel(viewModel);
 
